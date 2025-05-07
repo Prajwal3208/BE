@@ -1,0 +1,255 @@
+1. bfs_dfs
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <omp.h>
+using namespace std;
+
+vector<vector<int>> graph;
+vector<bool> visited_bfs;
+vector<bool> visited_dfs;
+
+void parallel_bfs(int start) {
+    queue<int> q;
+    q.push(start);
+    visited_bfs[start] = true;
+
+    while (!q.empty()) {
+        int node = q.front(); q.pop();
+        cout << node << " ";
+
+        #pragma omp parallel for
+        for (int i = 0; i < graph[node].size(); i++) {
+            int next = graph[node][i];
+            if (!visited_bfs[next]) {
+                #pragma omp critical
+                {
+                    if (!visited_bfs[next]) {
+                        visited_bfs[next] = true;
+                        q.push(next);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void parallel_dfs(int node) {
+    stack<int> s;
+    s.push(node);
+
+    while (!s.empty()) {
+        int current = s.top(); s.pop();
+        if (!visited_dfs[current]) {
+            visited_dfs[current] = true;
+            cout << current << " ";
+            #pragma omp parallel for
+            for (int i = graph[current].size() - 1; i >= 0; i--) {
+                int next = graph[current][i];
+                if (!visited_dfs[next]) {
+                    #pragma omp critical
+                    s.push(next);
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    int nodes, edges;
+    cout << "Enter number of nodes: ";
+    cin >> nodes;
+    cout << "Enter number of edges: ";
+    cin >> edges;
+
+    graph.resize(nodes);
+    visited_bfs.resize(nodes, false);
+    visited_dfs.resize(nodes, false);
+
+    cout << "Enter " << edges << " edges (format: u v):\n";
+    for (int i = 0; i < edges; i++) {
+        int u, v;
+        cin >> u >> v;
+        graph[u].push_back(v);
+        graph[v].push_back(u);  // For undirected graph
+    }
+
+    cout << "Parallel BFS: ";
+    parallel_bfs(0);
+    cout << "\nParallel DFS: ";
+    parallel_dfs(0);
+
+    return 0;
+}
+   
+    
+
+The code implements Parallel BFS and DFS using OpenMP on a graph with 6 nodes.
+
+vector<int> graph[N] is used as an adjacency list.
+
+Parallel BFS uses a queue and parallelizes the neighbor visits with #pragma omp parallel for. Critical sections prevent race conditions.
+
+Parallel DFS uses a stack and also parallelizes neighbor pushes in reverse order for DFS order, using #pragma omp critical for safety.
+
+The main() function sets up a sample undirected graph and runs both traversals from node 0.
+
+OpenMP helps speed up neighbor processing but real-world performance gain depends on graph size and structure.
+
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$**************$$$$$$$$$$$$&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&7
+
+
+2.sorts.cpp    
+    
+#include <iostream>
+#include <omp.h>
+#include <vector>
+#include <algorithm>
+#include <chrono>
+
+using namespace std;
+using namespace chrono;
+
+// Parallel Bubble Sort
+void bubble_sort(vector<int>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n - 1; i++)
+        #pragma omp parallel for
+        for (int j = 0; j < n - i - 1; j++)
+            if (arr[j] > arr[j + 1])
+                swap(arr[j], arr[j + 1]);
+}
+
+// Sequential Bubble Sort
+void sequential_bubble_sort(vector<int>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n - 1; i++)
+        for (int j = 0; j < n - i - 1; j++)
+            if (arr[j] > arr[j + 1])
+                swap(arr[j], arr[j + 1]);
+}
+
+// Merge Helper
+void merge(vector<int>& arr, int l, int m, int r) {
+    vector<int> left(arr.begin() + l, arr.begin() + m + 1);
+    vector<int> right(arr.begin() + m + 1, arr.begin() + r + 1);
+    int i = 0, j = 0, k = l;
+    while (i < left.size() && j < right.size())
+        arr[k++] = (left[i] <= right[j]) ? left[i++] : right[j++];
+    while (i < left.size()) arr[k++] = left[i++];
+    while (j < right.size()) arr[k++] = right[j++];
+}
+
+// Parallel Merge Sort
+void parallel_merge_sort(vector<int>& arr, int l, int r) {
+    if (l < r) {
+        int m = (l + r) / 2;
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            parallel_merge_sort(arr, l, m);
+            #pragma omp section
+            parallel_merge_sort(arr, m + 1, r);
+        }
+        merge(arr, l, m, r);
+    }
+}
+
+// Sequential Merge Sort
+void sequential_merge_sort(vector<int>& arr, int l, int r) {
+    if (l < r) {
+        int m = (l + r) / 2;
+        sequential_merge_sort(arr, l, m);
+        sequential_merge_sort(arr, m + 1, r);
+        merge(arr, l, m, r);
+    }
+}
+
+int main() {
+    vector<int> arr(10000);
+    generate(arr.begin(), arr.end(), rand);
+
+    // Parallel Bubble Sort
+    auto a1 = arr;
+    auto start = high_resolution_clock::now();
+    bubble_sort(a1);
+    auto stop = high_resolution_clock::now();
+    cout << "Parallel Bubble Sort Time: " << duration_cast<milliseconds>(stop - start).count() << "ms\n";
+
+    // Sequential Bubble Sort
+    auto a2 = arr;
+    start = high_resolution_clock::now();
+    sequential_bubble_sort(a2);
+    stop = high_resolution_clock::now();
+    cout << "Sequential Bubble Sort Time: " << duration_cast<milliseconds>(stop - start).count() << "ms\n";
+
+    // Parallel Merge Sort
+    auto a3 = arr;
+    start = high_resolution_clock::now();
+    parallel_merge_sort(a3, 0, a3.size() - 1);
+    stop = high_resolution_clock::now();
+    cout << "Parallel Merge Sort Time: " << duration_cast<milliseconds>(stop - start).count() << "ms\n";
+
+    // Sequential Merge Sort
+    auto a4 = arr;
+    start = high_resolution_clock::now();
+    sequential_merge_sort(a4, 0, a4.size() - 1);
+    stop = high_resolution_clock::now();
+    cout << "Sequential Merge Sort Time: " << duration_cast<milliseconds>(stop - start).count() << "ms\n";
+
+    return 0;
+}
+
+
+The code compares Parallel Bubble Sort and Parallel Merge Sort using OpenMP.
+
+bubble_sort() parallelizes inner loop with #pragma omp parallel for to compare and swap adjacent elements.
+
+parallel_merge_sort() uses #pragma omp parallel sections to sort left and right halves recursively in parallel, then merges them.
+
+main() generates a random array of 10,000 elements, sorts it with both algorithms, and measures execution time using chrono.    
+    
+
+@@@@@@@@@@@@@@@@@@@@@@@@@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^6
+
+    
+3.reduction.cpp
+
+
+#include <iostream>
+#include <omp.h>
+#include <vector>
+using namespace std;
+
+int main() {
+    const int N = 100000;
+    vector<int> data(N);
+    for (int i = 0; i < N; i++) data[i] = rand() % 100;
+
+    int min_val = data[0], max_val = data[0], sum = 0;
+    #pragma omp parallel for reduction(min:min_val) reduction(max:max_val) reduction(+:sum)
+    for (int i = 0; i < N; i++) {
+        if (data[i] < min_val) min_val = data[i];
+        if (data[i] > max_val) max_val = data[i];
+        sum += data[i];
+    }
+
+    cout << "Min: " << min_val << ", Max: " << max_val
+         << ", Sum: " << sum << ", Avg: " << (float)sum / N << endl;
+    return 0;
+}
+
+The code initializes a vector of 100,000 random integers between 0 and 99.
+
+It computes minimum, maximum, sum, and average using a single parallel loop.
+
+#pragma omp parallel for reduction(...) performs thread-safe reduction operations for min, max, and sum.
+
+Final results (min, max, sum, average) are printed after the loop.
+
+
+

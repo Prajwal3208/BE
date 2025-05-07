@@ -1,0 +1,424 @@
+#LINEAR REGRESSION
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+ 
+
+# 1. Load the dataset
+from tensorflow.keras.datasets import boston_housing
+(x_train, y_train), (x_test, y_test) = boston_housing.load_data()
+ 
+
+print("Training samples:", x_train.shape)
+print("Testing samples:", x_test.shape)
+ 
+
+# 2. Normalize the data
+scaler = StandardScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+ 
+
+# 3. Build a simple DNN model for Linear Regression
+model = keras.Sequential([
+    keras.layers.Dense(128, activation='relu', input_shape=(x_train.shape[1],)),
+    keras.layers.Dense(64, activation='relu'),
+    keras.layers.Dense(1)  # Linear output for regression
+])
+ 
+
+# 4. Compile the model
+model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+ 
+
+# 5. Train the model
+history = model.fit(x_train, y_train, epochs=100, batch_size=16, validation_split=0.1, verbose=0)
+ 
+
+# 6. Evaluate the model
+test_loss, test_mae = model.evaluate(x_test, y_test)
+y_pred = model.predict(x_test)
+ 
+
+print(f"\nTest MAE: {test_mae}")
+print(f"Test MSE: {mean_squared_error(y_test, y_pred)}")
+print(f"Test R² Score: {r2_score(y_test, y_pred)}")
+ 
+
+# 7. Plot predicted vs actual values
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, c='blue')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red')  # Ideal line
+plt.xlabel("Actual Prices")
+plt.ylabel("Predicted Prices")
+plt.title("Actual vs Predicted House Prices")
+plt.grid(True)
+plt.show()
+ 
+
+# 8. Predict and display first 5 test values
+print("\nFirst 5 Predictions vs Actual values:")
+for i in range(5):
+    print(f"Predicted: {y_pred[i][0]:.2f}, Actual: {y_test[i]:.2f}")
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Practical 2 
+#MULTICLASS CLASSIFICATION
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import classification_report, accuracy_score
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
+
+# 1. Load the dataset
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.data"
+column_names = ['letter', 'x-box', 'y-box', 'width', 'high', 'onpix', 'x-bar', 'y-bar',
+                'x2bar', 'y2bar', 'xybar', 'x2ybr', 'xy2br', 'x-ege', 'xegvy', 'y-ege', 'yegvx']
+data = pd.read_csv(url, header=None, names=column_names)
+
+# 2. Prepare features and labels
+X = data.drop('letter', axis=1)
+y = data['letter']
+
+# Encode labels A-Z into integers
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+y_categorical = to_categorical(y_encoded)
+
+# 3. Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y_categorical, test_size=0.2, random_state=42)
+
+# 4. Normalize features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 5. Build DNN model
+model = Sequential([
+    Dense(128, activation='relu', input_shape=(16,)),
+    Dense(64, activation='relu'),
+    Dense(26, activation='softmax')
+])
+
+# 6. Compile model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# 7. Train model
+history = model.fit(X_train, y_train, epochs=30, batch_size=32, validation_split=0.1, verbose=0)
+
+# 8. Evaluate model
+loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+print(f"Test Accuracy: {accuracy:.4f}")
+
+# 9. Predict & Classification Report
+y_pred_probs = model.predict(X_test, verbose=0)
+y_pred = np.argmax(y_pred_probs, axis=1)
+y_true = np.argmax(y_test, axis=1)
+
+print("\nClassification Report:")
+print(classification_report(y_true, y_pred, target_names=label_encoder.classes_))
+
+# 10. Plot training history
+def plot_history(history, title='Model Performance'):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1, len(acc) + 1)
+
+    plt.figure(figsize=(14, 5))
+
+    # Accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, acc, 'b-', label='Training Accuracy')
+    plt.plot(epochs, val_acc, 'r--', label='Validation Accuracy')
+    plt.title(f'{title} - Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.grid(True)
+
+    # Loss
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, loss, 'b-', label='Training Loss')
+    plt.plot(epochs, val_loss, 'r--', label='Validation Loss')
+    plt.title(f'{title} - Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+plot_history(history, title='Multiclass Classification (Letter Recognition)')
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+Practical Binary Classification
+
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.datasets import imdb
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Embedding, GlobalAveragePooling1D
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.metrics import classification_report
+
+# 1. Load IMDB dataset (only top 10,000 most frequent words)
+vocab_size = 10000
+(x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=vocab_size)
+
+# 2. Pad sequences to ensure uniform length
+maxlen = 256  # max review length
+x_train = pad_sequences(x_train, maxlen=maxlen)
+x_test = pad_sequences(x_test, maxlen=maxlen)
+
+# 3. Build a DNN model
+model = Sequential([
+    Embedding(vocab_size, 32, input_length=maxlen),
+    GlobalAveragePooling1D(),
+    Dense(64, activation='relu'),
+    Dense(1, activation='sigmoid')  # Output: probability of being positive
+])
+
+# 4. Compile the model
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# 5. Train the model
+history = model.fit(x_train, y_train, epochs=10, batch_size=32, validation_split=0.2, verbose=1)
+
+# 6. Evaluate the model
+loss, accuracy = model.evaluate(x_test, y_test)
+print(f"\nTest Accuracy: {accuracy:.4f}")
+
+# 7. Predict and classification report
+y_pred_prob = model.predict(x_test)
+y_pred = (y_pred_prob > 0.5).astype(int).flatten()
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=["Negative", "Positive"]))
+import matplotlib.pyplot as plt
+
+def plot_history(history, title='Model Performance'):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1, len(acc) + 1)
+
+    plt.figure(figsize=(14, 5))
+
+    # Accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, acc, 'b-', label='Training Accuracy')
+    plt.plot(epochs, val_acc, 'r--', label='Validation Accuracy')
+    plt.title(f'{title} - Accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.grid(True)
+
+    # Loss
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, loss, 'b-', label='Training Loss')
+    plt.plot(epochs, val_loss, 'r--', label='Validation Loss')
+    plt.title(f'{title} - Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+
+    plt.tight_layout()
+    plt.show()
+plot_history(history, title='Binary Classification (IMDB Sentiment)')
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+Practical 3 Fashion
+
+
+#CNN
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# 1. Load the Fashion MNIST dataset
+fashion_mnist = tf.keras.datasets.fashion_mnist
+(x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+
+# 2. Normalize pixel values to [0, 1]
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+# 3. Reshape data to add channel dimension (28, 28, 1)
+x_train = x_train.reshape(-1, 28, 28, 1)
+x_test = x_test.reshape(-1, 28, 28, 1)
+
+# 4. Build CNN model
+model = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    layers.MaxPooling2D(2, 2),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D(2, 2),
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.4),
+    layers.Dense(10, activation='softmax')  # 10 output classes
+])
+
+# 5. Compile the model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# 6. Train the model
+history = model.fit(x_train, y_train, epochs=10, batch_size=64, validation_split=0.2)
+
+# 7. Evaluate on test set
+test_loss, test_accuracy = model.evaluate(x_test, y_test)
+print(f"Test Accuracy: {test_accuracy:.2f}")
+
+# 8. Plot accuracy and loss
+def plot_history(history):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1, len(acc)+1)
+
+    plt.figure(figsize=(14, 5))
+   
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, acc, label='Train Accuracy')
+    plt.plot(epochs, val_acc, label='Val Accuracy')
+    plt.title('Training & Validation Accuracy')
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, loss, label='Train Loss')
+    plt.plot(epochs, val_loss, label='Val Loss')
+    plt.title('Training & Validation Loss')
+    plt.legend()
+    plt.show()
+
+plot_history(history)
+ 
+
+import numpy as np
+
+# Class names for Fashion MNIST
+class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+               'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
+predictions = model.predict(x_test[:5])
+for i in range(5):
+    plt.figure(figsize=(2, 2))
+    plt.imshow(x_test[i], cmap='gray')
+    plt.title(f"Pred: {class_names[np.argmax(predictions[i])]}\nActual: {class_names[y_test[i]]}", fontsize=8)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Practical 4 
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, r2_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+
+# 1. Load dataset
+df = pd.read_csv('/content/GOOG.csv')  # Use your uploaded file
+df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
+
+# Use only the 'Close' price
+data = df['Close'].astype(str).str.replace(',', '').astype(float).values.reshape(-1, 1)
+
+# 2. Normalize data
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(data)
+
+# 3. Create sequences
+def create_sequences(data, time_step=60):
+    X, y = [], []
+    for i in range(time_step, len(data)):
+        X.append(data[i-time_step:i])
+        y.append(data[i])
+    return np.array(X), np.array(y)
+
+time_step = 60
+X, y = create_sequences(scaled_data, time_step)
+
+# Reshape for LSTM [samples, time_steps, features]
+X = X.reshape(X.shape[0], X.shape[1], 1)
+
+# 4. Train-test split
+train_size = int(len(X) * 0.8)
+X_train, X_test = X[:train_size], X[train_size:]
+y_train, y_test = y[:train_size], y[train_size:]
+
+# 5. Build LSTM model
+model = Sequential([
+    LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], 1)),
+    LSTM(50),
+    Dense(1)
+])
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# 6. Train the model
+history = model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.1, verbose=0)
+
+# 7. Predict and inverse scale
+y_pred = model.predict(X_test)
+y_pred = scaler.inverse_transform(y_pred)
+y_test_actual = scaler.inverse_transform(y_test)
+
+# 8. Plot predictions
+plt.figure(figsize=(12, 6))
+plt.plot(y_test_actual, label='Actual Price')
+plt.plot(y_pred, label='Predicted Price')
+plt.title("Google Stock Price Prediction using LSTM")
+plt.xlabel("Time")
+plt.ylabel("Price")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# 9. Evaluate the model
+rmse = np.sqrt(mean_squared_error(y_test_actual, y_pred))
+r2 = r2_score(y_test_actual, y_pred)
+
+print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+print(f"R² Score: {r2:.4f}")
+
+
+ 
