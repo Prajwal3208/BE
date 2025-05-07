@@ -1,3 +1,20 @@
+steps
+!ls /usr/local/
+
+!which nvcc
+
+!nvidia-smi
+
+# code
+
+!nvcc -arch=sm_75 matrix_mul.cu -o matrix_mul
+
+!./matrix_mul   #filename
+
+
+
+
+
 %%writefile Min_Max.cu
 #include <iostream>
 #include <vector>
