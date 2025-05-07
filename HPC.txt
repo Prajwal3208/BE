@@ -1,935 +1,252 @@
-dfs_bfs
-#include <iostream>
-#include <vector>
-#include <queue>
-#include <stack>
-#include <omp.h>
-
-using namespace std;
-
-class Graph {
-    int V; // Number of vertices
-    vector<vector<int>> adj; // Adjacency list
-
-public:
-    Graph(int V) : V(V), adj(V) {}
-
-    // Add an edge to the undirected graph
-    void addEdge(int v, int w) {
-        adj[v].push_back(w);
-        adj[w].push_back(v);
-    }
-
-    // Print the adjacency list
-    void printGraph() {
-        cout << "\nGraph Adjacency List:\n";
-        for (int i = 0; i < V; i++) {
-            cout << "Vertex " << i << ": ";
-            for (int neighbor : adj[i]) {
-                cout << neighbor << " ";
-            }
-            cout << endl;
-        }
-    }
-
-    // Parallel Breadth-First Search
-    void parallelBFS(int start) {
-        vector<bool> visited(V, false);
-        queue<int> q;
-
-        double start_time = omp_get_wtime();
-       
-        visited[start] = true;
-        q.push(start);
-
-        cout << "\nParallel BFS starting from vertex " << start << ":\n";
-
-        while (!q.empty()) {
-            #pragma omp parallel
-            {
-                #pragma omp single
-                {
-                    int level_size = q.size();
-                    for (int i = 0; i < level_size; i++) {
-                        int v = q.front();
-                        q.pop();
-                        cout << v << " ";
-
-                        // Process neighbors in parallel
-                        #pragma omp task firstprivate(v) shared(visited, q)
-                        {
-                            for (int neighbor : adj[v]) {
-                                #pragma omp critical
-                                {
-                                    if (!visited[neighbor]) {
-                                        visited[neighbor] = true;
-                                        q.push(neighbor);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-       
-        double end_time = omp_get_wtime();
-        cout << "\n\nParallel BFS completed in " << (end_time - start_time) * 1000 << " milliseconds\n";
-    }
-
-    // Parallel Depth-First Search (using iterative approach)
-    void parallelDFS(int start) {
-        vector<bool> visited(V, false);
-        stack<int> s;
-
-        double start_time = omp_get_wtime();
-       
-        s.push(start);
-        visited[start] = true;
-
-        cout << "\nParallel DFS starting from vertex " << start << ":\n";
-
-        while (!s.empty()) {
-            int v;
-            #pragma omp critical
-            {
-                v = s.top();
-                s.pop();
-            }
-           
-            cout << v << " ";
-
-            // Process neighbors in parallel
-            #pragma omp parallel for
-            for (int i = 0; i < adj[v].size(); i++) {
-                int neighbor = adj[v][i];
-                #pragma omp critical
-                {
-                    if (!visited[neighbor]) {
-                        visited[neighbor] = true;
-                        s.push(neighbor);
-                    }
-                }
-            }
-        }
-       
-        double end_time = omp_get_wtime();
-        cout << "\n\nParallel DFS completed in " << (end_time - start_time) * 1000 << " milliseconds\n";
-    }
-};
-
-int main() {
-    int V, E, start_vertex;
-    int num_threads;
-   
-    cout << "Enter number of vertices: ";
-    cin >> V;
-    cout << "Enter number of edges: ";
-    cin >> E;
-   
-    Graph g(V);
-   
-    cout << "Enter edges (vertex pairs, 0-based indexing):\n";
-    for (int i = 0; i < E; i++) {
-        int v, w;
-        cin >> v >> w;
-        if (v >= V || w >= V || v < 0 || w < 0) {
-            cout << "Invalid vertex! Vertices must be between 0 and " << V-1 << endl;
-            i--; // Retry this edge
-            continue;
-        }
-        g.addEdge(v, w);
-    }
-   
-    cout << "Enter starting vertex for BFS/DFS (0-" << V-1 << "): ";
-    cin >> start_vertex;
-    if (start_vertex < 0 || start_vertex >= V) {
-        cout << "Invalid starting vertex! Using 0 as default.\n";
-        start_vertex = 0;
-    }
-   
-    cout << "Enter number of threads to use: ";
-    cin >> num_threads;
-    omp_set_num_threads(num_threads);
-   
-    g.printGraph();
-   
-    // Run parallel BFS
-    g.parallelBFS(start_vertex);
-   
-    // Run parallel DFS
-    g.parallelDFS(start_vertex);
-   
-    return 0;
-}
+Here is the **detailed theory** with **all important points** for each implementation: CUDA Vector Addition, BFS/DFS using OpenMP, and Bubble/Merge Sort using OpenMP.
 
-----------------------------------------------------------------------------------------------------------------------------
-parralel_bubblesort
-#include <iostream>
+---
 
-#include <ctime>
+## 🔹 1. **Vector Addition using CUDA**
 
-#include <cstdlib>
+**Definition**:
+Vector addition computes element-wise sum of two vectors:
+`C[i] = A[i] + B[i]` for all `i`.
 
-#include <omp.h>
+**Important Points**:
 
-#include <chrono>
+* **Parallelization**: Each GPU thread computes one element independently → data parallelism.
+* **Memory Management**:
 
- 
+  * `cudaMalloc()` to allocate device memory.
+  * `cudaMemcpy()` to transfer data from host to device and back.
+  * `cudaFree()` to free device memory.
+* **Kernel Launch**: `vectorAdd<<<blocks, threads>>>(...)`
 
-using namespace std;
+  * `blocks` and `threads` define how many threads execute concurrently.
+* **Advantages**:
 
-using namespace std::chrono;
+  * Massively parallel.
+  * Faster execution for large vectors compared to CPU.
+* **Applications**:
 
- 
+  * Graphics, signal processing, physics simulations.
 
-void bubbleSort(int arr[], int n)
+---
 
-{
+## 🔹 2. **Breadth-First Search (BFS) using OpenMP**
 
-    for (int i = 0; i < n - 1; ++i)
+**Definition**:
+BFS explores the graph level-by-level using a queue.
 
-    {
+**Important Points**:
 
-        for (int j = 0; j < n - i - 1; ++j)
+* **Data Structures**: Queue, visited array, adjacency list.
+* **Parallelism Strategy**:
 
-        {
+  * Process all neighbors of nodes in current level in parallel using `#pragma omp parallel for`.
+* **Race Conditions**: Need to synchronize access to the queue and visited array.
+* **Barriers**: Used to wait for all threads to finish before moving to the next level.
+* **Advantages**:
 
-            if (arr[j] > arr[j + 1])
+  * Efficient for wide graphs.
+  * Better parallel performance than DFS.
+* **Applications**:
 
-            {
+  * Shortest path in unweighted graphs, web crawling, AI search.
 
-                swap(arr[j], arr[j + 1]);
+---
 
-            }
+## 🔹 3. **Depth-First Search (DFS) using OpenMP**
 
-        }
+**Definition**:
+DFS explores graph by going deep along each branch before backtracking.
 
-    }
+**Important Points**:
 
-}
+* **Recursive Approach**: Can be parallelized using OpenMP tasks.
+* **OpenMP Usage**:
 
- 
+  * `#pragma omp parallel` to begin parallel region.
+  * `#pragma omp single` to allow only one thread to begin.
+  * `#pragma omp task` to spawn new thread for each child node.
+* **Synchronization**:
 
-void merge(int arr[], int l, int m, int r)
+  * `#pragma omp taskwait` to wait for all spawned tasks.
+* **Challenges**:
 
-{
+  * Stack-based nature makes parallelism complex.
+* **Applications**:
 
-    int i, j, k;
+  * Pathfinding, solving puzzles, cycle detection.
 
-    int n1 = m - l + 1;
+---
 
-    int n2 = r - m;
+## 🔹 4. **Bubble Sort using OpenMP**
 
- 
+**Definition**:
+A simple sorting method that repeatedly swaps adjacent elements if out of order.
 
-    int *L = new int[n1];
+**Important Points**:
 
-    int *R = new int[n2];
+* **Time Complexity**: O(n²), not efficient for large arrays.
+* **Parallel Strategy**:
 
- 
+  * Use **odd-even transposition**:
 
-    for (i = 0; i < n1; ++i)
+    * Odd phase: compare (1,2), (3,4), ...
+    * Even phase: compare (0,1), (2,3), ...
+  * Parallelize using `#pragma omp parallel for`.
+* **Data Dependency**:
 
-    {
+  * No overlapping index pairs during a phase, enabling safe parallelism.
+* **Applications**:
 
-        L[i] = arr[l + i];
+  * Educational use, small datasets.
 
-    }
+---
 
-    for (j = 0; j < n2; ++j)
+## 🔹 5. **Merge Sort using OpenMP**
 
-    {
+**Definition**:
+Divide array into halves, recursively sort them, and merge the results.
 
-        R[j] = arr[m + 1 + j];
+**Important Points**:
 
-    }
+* **Time Complexity**: O(n log n) – efficient.
+* **Divide-and-Conquer**:
 
- 
+  * Breaks the problem into independent subproblems.
+* **OpenMP Tasks**:
 
-    i = 0;
+  * `#pragma omp parallel`
+  * `#pragma omp single`
+  * `#pragma omp task` to sort each half in parallel.
+* **Merging**: Done sequentially or with further optimization.
+* **Scalability**: Good for large datasets due to task-based parallelism.
+* **Applications**:
 
-    j = 0;
+  * General-purpose sorting, external sorting for large files.
 
-    k = l;
+---
 
- 
+Would you like these in a **PDF/DOCX report format with a table of contents** and diagrams for each algorithm?
 
-    while (i < n1 && j < n2)
+Great! Here's how you can **confidently answer oral viva-style questions** about **parallel computing**, **threading**, and **complexities** in CUDA and OpenMP programs:
 
-    {
+---
 
-        if (L[i] <= R[j])
+## ✅ **1. How do you know your program is parallel?**
 
-        {
+**Answer**:
 
-            arr[k] = L[i];
+* If the program uses **multiple threads or tasks** that execute **independent operations simultaneously**, it's parallel.
+* In **OpenMP**, I use directives like `#pragma omp parallel`, `#pragma omp for`, and `#pragma omp task`.
+* In **CUDA**, I use a **kernel function** with many threads (`<<<blocks, threads>>>`) where each thread performs one part of the work.
+* **Example**: In CUDA vector addition, each thread adds one element of the vectors → 1000 threads work at once.
 
-            ++i;
+---
 
-        }
+## ✅ **2. What is parallel computing?**
 
-        else
+**Answer**:
 
-        {
+* Parallel computing means breaking a task into smaller parts and executing them **at the same time** using **multiple processors or threads**.
+* It speeds up processing and is used in large computations, graphics, simulations, etc.
 
-            arr[k] = R[j];
+---
 
-            ++j;
+## ✅ **3. What is threading?**
 
-        }
+**Answer**:
 
-        ++k;
+* Threading is the process of creating **multiple flows of execution** (called threads) within a program.
+* Each thread can run a portion of code independently.
+* In OpenMP, threads are managed by the compiler with `#pragma` directives.
+* In CUDA, each thread on GPU runs part of the kernel function.
 
-    }
+---
 
- 
+## ✅ **4. How do you implement parallelism in OpenMP?**
 
-    while (i < n1)
+**Answer**:
 
-    {
+* I include the OpenMP header: `#include <omp.h>`
+* I use **pragmas** like:
 
-        arr[k] = L[i];
+  * `#pragma omp parallel` → to create a team of threads.
+  * `#pragma omp for` → to divide loop iterations among threads.
+  * `#pragma omp task` → to run functions or recursion in parallel.
+* I control threads with `omp_get_num_threads()` and `omp_get_thread_num()`.
 
-        ++i;
+---
 
-        ++k;
+## ✅ **5. How do you implement parallelism in CUDA?**
 
-    }
+**Answer**:
 
- 
+* I define a **kernel function** using `__global__`.
+* Launch with: `kernel<<<numBlocks, numThreads>>>(args);`
+* Each thread uses:
 
-    while (j < n2)
+  ```cpp
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+  ```
 
-    {
+  to compute its own index and operate independently.
+* Allocate memory with `cudaMalloc()` and copy data with `cudaMemcpy()`.
 
-        arr[k] = R[j];
+---
 
-        ++j;
+## ✅ **6. What are the complexities of the algorithms?**
 
-        ++k;
+| Algorithm       | Sequential Time Complexity | Parallel Time Complexity | Notes                              |
+| --------------- | -------------------------- | ------------------------ | ---------------------------------- |
+| **Vector Add**  | O(n)                       | O(n/p)                   | p = number of threads              |
+| **BFS**         | O(V + E)                   | Reduced (level-parallel) | Parallel by level traversal        |
+| **DFS**         | O(V + E)                   | Reduced (task-based)     | Less scalable than BFS in OpenMP   |
+| **Bubble Sort** | O(n²)                      | O(n²/p)                  | Uses odd-even transposition method |
+| **Merge Sort**  | O(n log n)                 | O((n log n)/p)           | Recursive parts are parallelized   |
 
-    }
+---
 
- 
+## ✅ **7. How is memory managed in CUDA?**
 
-    delete[] L;
+**Answer**:
 
-    delete[] R;
+* Use `cudaMalloc()` to allocate memory on GPU.
+* Use `cudaMemcpy()` to transfer data from CPU to GPU and back.
+* Use `cudaFree()` to release memory.
+* Memory types: Global memory, shared memory (fast, thread block-level), and registers.
 
-}
+---
 
- 
+## ✅ **8. What are barriers or synchronization?**
 
-void mergeSort(int arr[], int l, int r)
+**Answer**:
 
-{
+* Used to ensure all threads complete a section before moving on.
+* In **OpenMP**: `#pragma omp barrier`.
+* In **CUDA**: `__syncthreads()` (used within a block).
+* Prevents race conditions and ensures correctness.
 
-    if (l < r)
+---
 
-    {
+## ✅ **9. What are race conditions?**
 
-        int m = l + (r - l) / 2;
+**Answer**:
 
-        #pragma omp parallel sections
+* When two or more threads **access the same data at the same time**, and at least one thread **writes**, the output can be wrong.
+* Prevented using synchronization (mutex, atomic, critical sections).
 
-        {
+---
 
-            #pragma omp section
+## ✅ **10. When is parallelism beneficial?**
 
-            {
+**Answer**:
 
-                mergeSort(arr, l, m);
+* When:
 
-            }
+  * Tasks are **independent**.
+  * There's a **large amount of data** (like big arrays).
+  * Tasks can be **divided** with **minimal communication**.
 
-            #pragma omp section
+---
 
-            {
+Would you like a **PDF cheat-sheet** with all these answers for last-minute viva revision?
 
-                mergeSort(arr, m + 1, r);
-
-            }
-
-        }
-
- 
-
-        merge(arr, l, m, r);
-
-    }
-
-}
-
- 
-
-void printArray(int arr[], int size)
-
-{
-
-    for (int i = 0; i < size; ++i)
-
-    {
-
-        cout << arr[i] << " ";
-
-    }
-
-    cout << endl;
-
-}
-
- 
-
-int main()
-
-{
-
-    int n;
-
-    cout << "Enter the size of the array: ";
-
-    cin >> n;
-
- 
-
-    int *arr = new int[n];
-
-    for (int i = 0; i < n; ++i)
-
-    {
-
-        cout << "Enter element : ";
-
-        cin >> arr[i];
-
-    }
-
- 
-
-    cout << "Original array: ";
-
-    printArray(arr, n);
-
- 
-
-    // Time measurement variables
-
-    auto start = high_resolution_clock::now();
-
-    auto end = high_resolution_clock::now();
-
-    auto duration = duration_cast<microseconds>(end - start);   
-
- 
-
-    // Sequential Bubble Sort
-
-    start = high_resolution_clock::now();
-
-    bubbleSort(arr, n);
-
-    end = high_resolution_clock::now();
-
-    duration = duration_cast<microseconds>(end - start);
-
-    cout << "\nSequential Bubble Sorted array: ";
-
-    printArray(arr, n);
-
-    cout << "Time taken: " << duration.count() << " microseconds\n";
-
- 
-
-    // Parallel Bubble Sort
-
-    start = high_resolution_clock::now();
-
-        #pragma omp parallel
-
-    {
-
-        #pragma omp single
-
-        {
-
-            bubbleSort(arr, n);
-
-        }
-
-    }
-
-    end = high_resolution_clock::now();
-
-    duration = duration_cast<microseconds>(end - start);
-
-    cout << "Parallel Bubble Sorted array: ";
-
-    printArray(arr, n);
-
-    cout << "Time taken: " << duration.count() << " microseconds\n";
-
- 
-
-    // Sequential Merge Sort
-
-    start = high_resolution_clock::now();
-
-    mergeSort(arr, 0, n - 1);
-
-    end = high_resolution_clock::now();
-
-    duration = duration_cast<microseconds>(end - start);
-
-    cout << "Sequential Merge Sorted array: ";
-
-    printArray(arr, n);
-
-    cout << "Time taken: " << duration.count() << " microseconds\n";
-
-   
-
-    // Parallel Merge Sort
-
-    start = high_resolution_clock::now();
-
-    #pragma omp parallel
-
-    {
-
-        #pragma omp single
-
-        {
-
-            mergeSort(arr, 0, n - 1);
-
-        }
-
-    }
-
-    end = high_resolution_clock::now();
-
-    duration = duration_cast<microseconds>(end - start);
-
-    cout << "Parallel Merge Sorted array: ";
-
-    printArray(arr, n);
-
-    cout << "Time taken: " << duration.count() << " microseconds\n";
-
- 
-
-    delete[] arr;
-
- 
-
-    return 0;
-
-}
-
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-parallel_reduction
-
-#include <iostream>
-
-#include <omp.h>
-
-#include <climits>
-
-using namespace std;
-
- 
-
-// Function to find the minimum value in an array using parallel reduction
-
-void min_reduction(int arr[], int n) {
-
-  int min_value = INT_MAX;  
-
-  // Use OpenMP parallel for loop with reduction clause (min)
-
-  #pragma omp parallel for reduction(min: min_value)
-
-  for (int i = 0; i < n; i++) {
-
-    if (arr[i] < min_value) {
-
-      min_value = arr[i];  
-
-    }
-
-  }
-
-  cout << "Minimum value: " << min_value << endl;
-
-}
-
- 
-
-// Function to find the maximum value in an array using parallel reduction
-
-void max_reduction(int arr[], int n) {
-
-  int max_value = INT_MIN;  
-
-  // Use OpenMP parallel for loop with reduction clause (max)
-
-  #pragma omp parallel for reduction(max: max_value)
-
-  for (int i = 0; i < n; i++) {
-
-    if (arr[i] > max_value) {
-
-      max_value = arr[i];  
-
-    }
-
-  }
-
-  cout << "Maximum value: " << max_value << endl;
-
-}
-
- 
-
-// Function to calculate the sum of elements in an array using parallel reduction
-
-void sum_reduction(int arr[], int n) {
-
-  int sum = 0;
-
-  // Use OpenMP parallel for loop with reduction clause (+)
-
-  #pragma omp parallel for reduction(+: sum)
-
-  for (int i = 0; i < n; i++) {
-
-    sum += arr[i];  
-
-  }
-
-  cout << "Sum: " << sum << endl;
-
-}
-
- 
-
-// Function to calculate the average of elements in an array using parallel reduction
-
-void average_reduction(int arr[], int n) {
-
-  int sum = 0;
-
-  // Use OpenMP parallel for loop with reduction clause (+)
-
-  #pragma omp parallel for reduction(+: sum)
-
-  for (int i = 0; i < n; i++) {
-
-    sum += arr[i];  
-
-  }
-
-  // Calculate average using the reduced sum (note: consider division by n-1 for unbiased average)
-
-  double average = (double)sum / (n - 1);
-
-  cout << "Average: " << average << endl;
-
-}
-
- 
-
-int main() {
-
-  int n;
-
-  cout << "\nEnter the total number of elements: ";
-
-  cin >> n;
-
-  int *arr = new int[n];
-
- 
-
-  for (int i = 0; i < n; i++) {
-
-    cout << "\nEnter the element : ";
-
-    cin >> arr[i];
-
-  }
-
- 
-
-  min_reduction(arr, n);
-
-  max_reduction(arr, n);
-
-  sum_reduction(arr, n);
-
-  average_reduction(arr, n);
-
- 
-
-  delete[] arr;
-
-  return 0;
-
-}
-
- 
-
--------------------------------------------------------------------------------------------------------------------
-
- 
-
-CUDA
-
- 
-
-!ls /usr/local
-
- 
-
-!which nvcc
-
- 
-
-!nvidia-smi
-
- 
-
-%%writefile vector_add.cu
- 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cuda.h>
- 
-#define N 1000000
- 
-// CUDA Kernel to perform vector addition
-__global__ void vectorAdd(int* A, int* B, int* C, int n) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n) {
-    C[i] = A[i] + B[i];
-  }
-}
- 
-// Fill array with random integers
-void fillArray(int *arr, int n){
-  for (int i = 0; i < n; i++) {
-    arr[i] = rand() % 100;
-  }
-}
- 
-int main() {
-  int size = N * sizeof(int);
- 
-  // Allocate memory on host
-  int *h_A = (int*)malloc(size);
-  int *h_B = (int*)malloc(size);
-  int *h_C = (int*)malloc(size);
- 
-  // Initialize arrays on host
-  fillArray(h_A, N);
-  fillArray(h_B, N);
- 
-  // Allocate memory on device
-  int *d_A, *d_B, *d_C;
-  cudaMalloc((void**)&d_A, size);
-  cudaMalloc((void**)&d_B, size);
-  cudaMalloc((void**)&d_C, size);
- 
-  // Copy data from host to device
-  cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
- 
-  // Launch kernel on GPU
-  int threadsPerBlock = 256;
-  int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
-  vectorAdd<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, N);
- 
-  // Copy result back to host
-  cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
- 
-  // Print the first 10 elements of the result
-  printf("Vector Addition Result (first 10 element):\n");
-  for (int i = 0; i < 10; i++) {
-    printf("%d + %d = %d\n", h_A[i], h_B[i], h_C[i]);
-  }
- 
-  // Free memory
-  cudaFree(d_A);
-  cudaFree(d_B);
-  cudaFree(d_C);
-  free(h_A);
-  free(h_B);
-  free(h_C);
- 
-  return 0;
-}
- 
-
-!nvcc -arch=sm_75 vector_add.cu -o vector_add
- 
-
-!./vector_add
- 
-
-%%writefile matrix_mul.cu
- 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cuda.h>
- 
-#define N 16
- 
-// CUDA Kernel to perform matrix multiplication
-__global__ void matrixMul(int *A, int *B, int *C, int width) {
-  int row = blockIdx.y * blockDim.y + threadIdx.y;
-  int col = blockIdx.x * blockDim.x + threadIdx.x;
- 
-  // Check for valid matrix indices within bounds
-  if (row < width && col < width) {
-    int sum = 0;
-    for (int k = 0; k < width; ++k) {
-      sum += A[row * width + k] * B[k * width + col];
-    }
-    C[row * width + col] = sum;
-  }
-}
- 
-void fillMatrix(int *matrix, int width) {
-  for (int i = 0; i < width * width; i++) {
-    matrix[i] = rand() % 10;
-  }
-}
- 
-void printMatrix(int *matrix, int width) {
-  for (int i = 0; i < width; i++) {
-    for (int j = 0; j < width; j++) {
-      printf("%4d ", matrix[i * width + j]);
-    }
-    printf("\n");
-  }
-}
- 
-int main() {
-  int size = N * N * sizeof(int);
- 
-  // Allocate memory on host
-  int *h_A = (int*)malloc(size);
-  int *h_B = (int*)malloc(size);
-  int *h_C = (int*)malloc(size);
- 
-  // Initialize matrices on host
-  fillMatrix(h_A, N);
-  fillMatrix(h_B, N);
- 
-  // Allocate memory on device
-  int *d_A, *d_B, *d_C;
-  cudaMalloc((void**)&d_A, size);
-  cudaMalloc((void**)&d_B, size);
-  cudaMalloc((void**)&d_C, size);
- 
-  // Copy data from host to device
-  cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
- 
-  // Define grid and block dimensions
-  dim3 dimBlock(16, 16);
-  dim3 dimGrid((N + dimBlock.x - 1) / dimBlock.x, (N + dimBlock.x - 1) / dimBlock.x);
- 
-  //Launch kernel on GPU
-  matrixMul<<<dimGrid, dimBlock>>>(d_A, d_B, d_C, N);
- 
-  // Copy result back to host
-  cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
- 
-  //Print results
-  printf("Matrix A:\n");
-  printMatrix(h_A, N);
-  printf("\nMatrix B:\n");
-  printMatrix(h_B, N);
-  printf("\nMatrix C (A x B):\n");
-  printMatrix(h_C, N);
- 
-  //Free memory
-  cudaFree(d_A);
-  cudaFree(d_B);
-  cudaFree(d_C);
-  free(h_A);
-  free(h_B);
-  free(h_C);
- 
-  return 0;
-}
- 
-
-!nvcc -arch=sm_75 matrix_mul.cu -o matrix_mul
- 
-
-!./matrix_mul
---------------------------------------------------------------------------------------------------------------------
- 
-
-HPC_5
-import tensorflow as tf  
-model = tf.keras.models.Sequential([  
-tf.keras.layers.Conv2D(32, (3,3), activation='relu', input_shape=(28, 28, 1)),  
-tf.keras.layers.MaxPooling2D((2, 2)),  
-tf.keras.layers.Flatten(),  
-tf.keras.layers.Dense(10, activation='softmax')  
-])  
-Load the dataset:  
-mnist = tf.keras.datasets.mnist  
-(x_train, y_train), (x_test, y_test) = mnist.load_data()  
-x_train, x_test = x_train / 255.0, x_test / 255.0  
-Initialize MPI  
-from mpi4py import MPI  
-comm = MPI.COMM_WORLD 
-rank = comm.Get_rank()  
-size = comm.Get_size()  
-Define the training function:  
-def train(model, x_train, y_train, rank, size):  
-# Split the data across the nodes n =  
-len(x_train)  
-chunk_size = n // size start = rank *  
-chunk_size end = (rank + 1) * chunk_size  
-if rank == size - 1:  
-end = n  
-x_train_chunk = x_train[start:end]  
-y_train_chunk = y_train[start:end]  
-# Compile the model  
-model.compile(optimizer='adam',  
-loss='sparse_categorical_crossentropy',  
-metrics=['accuracy'])  
-# Train the model  
-model.fit(x_train_chunk, y_train_chunk, epochs=1, batch_size=32)  
-# Compute the accuracy on the training data  
-train_loss, train_acc = model.evaluate(x_train_chunk, y_train_chunk, verbose=2)  
-# Reduce the accuracy across all nodes  
-train_acc = comm.allreduce(train_acc, op=MPI.SUM)  
-return train_acc / size  
-Run the training loop:  
-epochs = 5 
-for epoch in range(epochs):  
-# Train the model  
-train_acc = train(model, x_train, y_train, rank, size)  
-# Compute the accuracy on the test data  
-test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)  
-# Reduce the accuracy across all nodes  
-test_acc = comm.allreduce(test_acc, op=MPI.SUM)  
-# Print the results if rank ==  
-0:  
-print(f"Epoch {epoch + 1}: Train accuracy = {train_acc:.4f}, Test accuracy = {test_acc /  
-size:.4f}")  
-Output:  
-Epoch 1: Train accuracy = 0.9773, Test accuracy = 0.9745  
-Epoch 2: Train accuracy = 0.9859, Test accuracy = 0.9835  
-Epoch 3: Train accuracy = 0.9887, Test accuracy = 0.9857  
-Epoch 4: Train accuracy = 0.9905, Test accuracy = 0.9876  
-Epoch 5: Train accuracy = 0.9919, Test accuracy = 0.9880 
- 
