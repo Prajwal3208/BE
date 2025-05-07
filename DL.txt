@@ -68,7 +68,47 @@ plt.xlim([0, 60])
 plt.ylim([0, 60])
 plt.grid()
 plt.show()
- 
+
+
+*****
+Here's a short and simple explanation of your code:
+
+---
+
+### 🏠 **Boston Housing Price Prediction Using Neural Network**
+
+1. **Imports Libraries**: You import required tools for data handling (Pandas, NumPy), plotting (Matplotlib, Seaborn), machine learning (Scikit-learn), and deep learning (TensorFlow/Keras).
+
+2. **Load Data**: You load the Boston housing dataset from `'Boston.csv'`.
+
+3. **Split Features & Target**:
+
+   * `X` = all features (input variables).
+   * `Y` = target column (`medv`, which is the house price).
+
+4. **Scale Features**: Normalize the feature values using `StandardScaler` to help the model train better.
+
+5. **Split Data**: 80% for training and 20% for testing.
+
+6. **Build Neural Network**:
+
+   * 3 hidden layers with 128, 64, and 32 neurons using ReLU activation.
+   * 1 output layer for predicting price.
+
+7. **Compile Model**: Using Mean Squared Error (MSE) loss and Adam optimizer.
+
+8. **Train Model**: You train for 100 epochs using the training data.
+
+9. **Evaluate Model**: Calculates MSE and MAE (mean absolute error) on test data.
+
+10. **Make Predictions**: Predicts prices on test data.
+
+11. **Plot Results**: Shows a scatter plot comparing predicted vs actual house prices.
+
+---
+
+
+
 
 ------------------------------------------------------------------------------------------------------------------------
 imdb_dataset
@@ -133,6 +173,54 @@ y_pred_classes = (y_pred_probs > 0.5).astype("int32")
 for i in range(10):
     print(f"Review {i+1} - Predicted: {'Positive' if y_pred_classes[i][0] == 1 else 'Negative'}, Actual: {'Positive' if y_test[i] == 1 else 'Negative'}")
  
+***** Here's a short and simple explanation of your IMDb sentiment analysis code:
+
+---
+
+### 🎬 **IMDb Movie Review Sentiment Classifier**
+
+1. **Imports Libraries**: You load TensorFlow and tools for building neural networks and plotting.
+
+2. **Load Dataset**:
+   You load 50,000 preprocessed movie reviews:
+
+   * `x_train`, `y_train`: training data
+   * `x_test`, `y_test`: test data
+   * Each review is encoded as integers (words replaced with numbers).
+
+3. **Pad Sequences**:
+   All reviews are made the same length (`maxlen = 200`) using `pad_sequences()`.
+
+4. **Build Model**:
+
+   * **Embedding Layer**: Turns word indices into vectors (like word meaning).
+   * **GlobalAveragePooling1D**: Averages word vectors into one vector.
+   * **Dense Layers**: Fully connected layers; the last layer outputs 0–1 (negative to positive sentiment).
+
+5. **Compile Model**:
+   Uses:
+
+   * `adam` optimizer
+   * `binary_crossentropy` loss (good for yes/no classification)
+   * Tracks `accuracy`.
+
+6. **Train Model**:
+   Trains for 10 epochs using 80% of training data (20% for validation).
+
+7. **Evaluate Model**:
+   Prints test accuracy.
+
+8. **Plot Accuracy & Loss**:
+   Shows how accuracy and loss change over epochs.
+
+9. **Make Predictions**:
+
+   * Predicts first 10 reviews.
+   * Prints whether each is predicted as *Positive* or *Negative* and compares to actual.
+
+---
+
+Let me know if you want a simpler version or explanation of specific layers.
 
 -------------------------------------------------------------------------------------------------------------------------
 fashion
@@ -208,7 +296,50 @@ for i in range(5):
     plt.axis('off')
     plt.tight_layout()
     plt.show()
- 
+ ***
+Here's a short and simple explanation of your Fashion MNIST CNN model code:
+
+---
+
+### 👕 **Fashion Item Classifier (Image Recognition)**
+
+1. **Load Data**:
+   Gets fashion images (28×28 grayscale) from the Fashion MNIST dataset.
+   Each image belongs to one of 10 categories like T-shirt, Shoe, Bag, etc.
+
+2. **Normalize Images**:
+   Pixel values are scaled from 0–255 to 0–1 for better training.
+
+3. **Class Labels**:
+   A list that maps numbers (0–9) to clothing item names.
+
+4. **Build CNN Model**:
+
+   * **Reshape**: Adds a channel dimension (28×28×1).
+   * **Conv2D + MaxPooling**: Extracts image features and reduces size.
+   * **Flatten**: Converts 2D to 1D.
+   * **Dense Layers**: Fully connected layers for classification.
+   * **Softmax**: Outputs probabilities for each class (10 total).
+
+5. **Compile Model**:
+   Uses Adam optimizer and sparse categorical loss (for integer labels).
+
+6. **Train Model**:
+   Trains for 10 epochs with 80% training data and 20% for validation.
+
+7. **Evaluate Model**:
+   Tests accuracy on unseen test images and prints it.
+
+8. **Plot Accuracy & Loss**:
+   Shows how training and validation accuracy/loss change over time.
+
+9. **Predict and Display Images**:
+   Shows 5 test images with predicted and actual clothing names.
+
+---
+
+Want help turning this into a project report or explanation slide?
+
 
 --------------------------------------------------------------------------------------------------------------------------
 stock_price
@@ -288,4 +419,48 @@ plt.xlabel('Time')
 plt.ylabel('Stock Price')
 plt.legend()
 plt.show()
+
+Here’s a short and simple explanation of your **stock price prediction** code:
+
+---
+
+### 📈 **Google Stock Price Prediction Using RNN**
+
+1. **Load Data**:
+   You load only the "Close" prices from `GOOGL.csv`.
+
+2. **Scale Data**:
+   Use `MinMaxScaler` to scale prices between 0 and 1 (helps the model train faster).
+
+3. **Create Sequences**:
+   For each point, you take the last 60 days of prices as input (`X`) and the next day's price as output (`Y`).
+
+4. **Reshape Data**:
+   Format input data to fit RNN: shape = `(samples, 60, 1)`.
+
+5. **Split Data**:
+   80% is used for training, 20% for testing.
+
+6. **Build RNN Model**:
+
+   * Uses **2 SimpleRNN layers**.
+   * Ends with a **Dense** layer to predict the price.
+   * `return_sequences=True` allows stacking RNN layers.
+
+7. **Train Model**:
+   Model trains for 50 epochs with a batch size of 32.
+
+8. **Evaluate & Predict**:
+   Model evaluates test loss and predicts future prices.
+
+9. **Inverse Transform**:
+   Converts scaled predictions back to actual prices.
+
+10. **Plot Results**:
+    Shows a graph comparing predicted vs. actual Google stock prices.
+
+---
+
+Let me know if you want this rewritten for a project report or poster!
+
  
